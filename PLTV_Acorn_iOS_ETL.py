@@ -252,11 +252,10 @@ combined_df = pd.merge(rule_pred_df, agg_df, on = ['date'], suffixes = ('_after_
 
 #region V (2.0 Beta).   UPDATE OLD COHORT PREDICTIONS ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-bias = 0.15 #Obtained on the cross validation (Assumed to be the same in relative terms as day 14 although not necessarily)
-mult_28 = 2.5 #ratio 28 / 7 
-mult_14 = 1.5 #ration 14 / 7
-linear_growth_rate = 0.0153 # average daily growth cross-sources from day 28 to day 100
-
+bias = 0.0 #Obtained on the cross validation (Assumed to be the same in relative terms as day 14 although not necessarily)
+mult_28 = 1.473180489144073 #ratio 28 / 7 
+mult_14 = 1.2218518277171337 #ration 14 / 7
+linear_growth_rate = 0.006806150959772336 # average daily growth cross-sources from day 28 to day 100
 
 for col in pred_list:
 
@@ -274,7 +273,6 @@ for pred in pred_list[2:]:
     days_left = float(re.sub(r'\D', '', pred)) - 28
     rule_pred_df.loc[~rule_pred_df['pred_28'].isnull(), pred] = rule_pred_df.loc[~rule_pred_df['pred_28'].isnull(), 'pred_28'] * (1 + linear_growth_rate * days_left)
 
-rule_pred_df = agg_df[['date'] + ['te_installs'] + observed_col_names].merge(rule_pred_df, on = ['date'])
 
 #endregion
 
