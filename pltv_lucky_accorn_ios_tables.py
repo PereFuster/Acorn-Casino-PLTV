@@ -260,6 +260,6 @@ group by 1, a."register_time"
 """
 
 global_symbols = globals()
-tables = [USER_PAYMENT, WITHDRAWALS, PLAYERS_BEHAVIOUR, CURRENCY_STATUS, ADVERTISING_REVENUE]
+tables = [USER_PAYMENT, WITHDRAWALS, ADVERTISING_REVENUE]
 
 
