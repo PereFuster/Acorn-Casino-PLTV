@@ -8,7 +8,7 @@ import types
 
 USER_PAYMENT = f"""
 with payment_aux as (
-select "#event_time", "pay_enter_name", "payment_type","#account_id", "#os", "net_amount" as na
+select "#event_time", "pay_enter_name", "payment_type","#account_id", "#os", cast("net_amount" as double) as na
 from ta.v_event_59
 where "$part_event" = 'order_pay'
     and ("is_true" is null or "is_true" = true)
@@ -71,7 +71,6 @@ from ta.v_user_59 as a
   on a."#account_id" = b."#account_id"
   and a."register_time" < b."#event_time"
 where cast(date_format(date_add('hour', 8, "register_time"), '%Y-%m-%d') as varchar) between '{start_date}' and '{end_date}'
-  and a."#account_id" in (select distinct "#account_id" from ta.v_event_59 where "$part_event" = 'login' and ("is_true" is null or "is_true" = true) and "$part_date" is not null and "#os" = 'iOS')
 group by 1,2
 """
 
