@@ -71,6 +71,7 @@ from ta.v_user_59 as a
   on a."#account_id" = b."#account_id"
   and a."register_time" < b."#event_time"
 where cast(date_format(date_add('hour', 8, "register_time"), '%Y-%m-%d') as varchar) between '{start_date}' and '{end_date}'
+  and a."bundle_id" like '%{client_name}%'
 group by 1,2
 """
 
@@ -144,6 +145,7 @@ from ta.v_user_59 a
 	and a."register_time" < ws_t
 	and ws_t < date_add('day', 30, a."register_time")
 where cast(date_format(date_add('hour', 8, "register_time"), '%Y-%m-%d') as varchar) between '{start_date}' and '{end_date}'
+  and a."bundle_id" like '%{client_name}%'
 group by 1
 """
 
@@ -169,6 +171,7 @@ from ta.v_user_59 as a
     on a."#account_id" = b."#account_id" and a."register_time" < b."#event_time"
     and date_diff('day', a."register_time", b."#event_time") <= 30
 where cast(date_format(date_add('hour', 8, "register_time"), '%Y-%m-%d') as varchar) between '{start_date}' and '{end_date}'
+  and a."bundle_id" like '%{client_name}%'
 group by 1, a."register_time"
 """
 
@@ -201,6 +204,7 @@ from ta.v_user_59 as a
         on a."#account_id" = b."#account_id"
         and a."register_time" < b."#event_time"
 where cast(date_format(date_add('hour', 8, "register_time"), '%Y-%m-%d') as varchar) between '{start_date}' and '{end_date}'
+  and a."bundle_id" like '%{client_name}%'
 group by 1, a."register_time"
 """
 
@@ -256,6 +260,7 @@ left join (select "#account_id", "#event_time", "revenue" from v_event_59 where 
   on a."#account_id" = b."#account_id"
   and a."register_time" < b."#event_time"
 where cast(date_format(date_add('hour', 8, "register_time"), '%Y-%m-%d') as varchar) between '{start_date}' and '{end_date}'
+  and a."bundle_id" like '%{client_name}%'
 group by 1, a."register_time"
 """
 
