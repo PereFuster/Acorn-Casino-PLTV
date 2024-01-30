@@ -139,8 +139,8 @@ df['te_installs'] = 1
 agg_df = df.fillna(0).groupby('date')[[col for col in df.columns if col.startswith("p") or col.startswith("w") or col.startswith("ad")] + ['te_installs']].sum().reset_index()
 
 # II. API dataset
-api_details = {'bundle_id': 'com.games.holdem.pokerhit.us.ios', 'start': start_date, 'end':  end_date}
-api_url = 'http://uspokerhit-ios.vegashouse.club/server/media_source_cost'
+api_details = {'bundle_id': 'com.acorncasino.slots', 'start': start_date, 'end':  end_date}
+api_url = 'http://acorncasino-ios.twilightgift.club/server/media_source_cost'
 
 # Send a GET request to the API
 response = requests.post(api_url, api_details)
@@ -258,14 +258,13 @@ mult_14 = 1.2218518277171337 #ration 14 / 7
 linear_growth_rate = 0.006806150959772336 # average daily growth cross-sources from day 28 to day 100
 
 for col in pred_list:
-
     if col == 'pred_14':
-        rule_pred_df[col] = 0.6*(combined_df[f'{col}_after_rule'])*(1+bias) + 0.55*(mult_14*(combined_df[f'revenue_d7'] - combined_df[f'withdraw_d7'])/combined_df[f'cost'])
+        rule_pred_df[col] = 0.1*(combined_df[f'{col}_after_rule'])*(1+bias) + 0.9*(mult_14*(combined_df[f'revenue_d7'] - combined_df[f'withdraw_d7'])/combined_df[f'cost'])
     elif col == 'pred_28':
-        rule_pred_df[col] = 0.6*(combined_df[f'{col}_after_rule'])*(1+bias) + 0.55*(mult_28*(combined_df[f'revenue_d7'] - combined_df[f'withdraw_d7'])/combined_df[f'cost'])
+        rule_pred_df[col] = 0.1*(combined_df[f'{col}_after_rule'])*(1+bias) + 0.9*(mult_28*(combined_df[f'revenue_d7'] - combined_df[f'withdraw_d7'])/combined_df[f'cost'])
     else: 
         days_left = float(re.sub(r'\D', '', col)) - 28
-        rule_pred_df[col] = (1 + linear_growth_rate * days_left) * mult_28*(combined_df[f'revenue_d7'] - combined_df[f'withdraw_d7'])/combined_df[f'cost']
+        rule_pred_df[col] = (1 + linear_growth_rate*days_left) * mult_28 *(combined_df[f'revenue_d7'] - combined_df[f'withdraw_d7'])/combined_df[f'cost']
         # rule_pred_df[col] = combined_df[f'revenue_d7'] - combined_df[f'withdraw_d7']/combined_df[f'cost']
         # rule_pred_df[col] = rule_pred_df[col].combine_first(linear_growth_rate * days_left * rule_pred_df['pred_28']*1.3)
 
@@ -273,6 +272,7 @@ for pred in pred_list[2:]:
     days_left = float(re.sub(r'\D', '', pred)) - 28
     rule_pred_df.loc[~rule_pred_df['pred_28'].isnull(), pred] = rule_pred_df.loc[~rule_pred_df['pred_28'].isnull(), 'pred_28'] * (1 + linear_growth_rate * days_left)
 
+rule_pred_df = agg_df[['date'] + ['te_installs'] + observed_col_names].merge(rule_pred_df, on = ['date'])
 
 #endregion
 
@@ -382,6 +382,7 @@ for date in dates:
 rule_pred_df['payback'] = pd.to_numeric(rule_pred_df['payback'], errors='coerce').astype(pd.Int64Dtype())
 
 columns_to_select = [col for col in result_df.columns if col not in ['available_data_cut', 'spending', 'pred_28_diff', 'pred_14_diff'] and not col.startswith('observed_')]
+
 rule_pred_df = rule_pred_df[columns_to_select + ['te_installs'] + ['payback']]
 
 #endregion
