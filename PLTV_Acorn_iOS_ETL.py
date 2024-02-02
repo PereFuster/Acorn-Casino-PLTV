@@ -32,7 +32,7 @@ host = 'td.winnerstudio.vip'
 tables_path = 'pltv_lucky_accorn_ios_tables.py'
 
 today = pd.to_datetime((datetime.now() - timedelta(days = 1)).strftime('%Y-%m-%d'))
-start_date = (datetime.now() - timedelta(days = 38)).strftime('%Y-%m-%d')
+start_date = (datetime.now() - timedelta(days = 15)).strftime('%Y-%m-%d')
 end_date = (datetime.now() - timedelta(days = 8)).strftime('%Y-%m-%d')
 client_name = 'ios'
 
@@ -189,7 +189,9 @@ agg_df['avail_days'] = (today - agg_df['date'].apply(lambda x: datetime.strptime
 unique_dates = agg_df['date'].unique()
 
 for date in unique_dates:   
+
     for res in response_values: 
+    
         # We do this part because we only have predictions up to 28 + 35, so we don't want the last day, but the available predictive day 
         date_avail_days = agg_df[agg_df['date'] == date]['avail_days'].values[0] 
         max_k_below_date_k = max(k for k in available_k_values if k <= date_avail_days) 
@@ -265,8 +267,9 @@ for col in pred_list:
     else: 
         days_left = float(re.sub(r'\D', '', col)) - 28
         rule_pred_df[col] = (1 + linear_growth_rate*days_left) * mult_28 *(combined_df[f'revenue_d7'] - combined_df[f'withdraw_d7'])/combined_df[f'cost']
-        # rule_pred_df[col] = combined_df[f'revenue_d7'] - combined_df[f'withdraw_d7']/combined_df[f'cost']
-        # rule_pred_df[col] = rule_pred_df[col].combine_first(linear_growth_rate * days_left * rule_pred_df['pred_28']*1.3)
+
+
+
 
 for pred in pred_list[2:]:
     days_left = float(re.sub(r'\D', '', pred)) - 28
@@ -275,6 +278,117 @@ for pred in pred_list[2:]:
 rule_pred_df = agg_df[['date'] + ['te_installs'] + observed_col_names].merge(rule_pred_df, on = ['date'])
 
 #endregion
+
+
+#region V (2.0 Beta).   RE-UPDATE COHORT PREDICTIONS ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+import datetime
+today_date = today = datetime.date.today()
+start_date = today_date - pd.DateOffset(days = 100)
+end_date = today_date - pd.DateOffset(days = 8)
+
+api_details = {'bundle_id': 'com.acorncasino.slots', 'start': start_date, 'end':  end_date}
+api_url = 'http://acorncasino-ios.twilightgift.club/server/all_roi_by_user'
+
+# Send a GET request to the API
+response = requests.post(api_url, api_details)
+if response.status_code == 200:
+    # Request was successful
+    bi_report = response.json()  # Parse the JSON response if the API returns JSON data
+    bi_report = pd.DataFrame(bi_report['data'])
+    print('Loaded', bi_report.shape)
+else:
+    print(f"Failed to retrieve data. Status code: {response.status_code}")
+
+bi_report['date_dt'] = pd.to_datetime(bi_report['date_str'])
+bi_report['date'] = bi_report['date_dt'].dt.strftime('%Y%m%d').astype(int)
+
+columns_from = [7, 14, 21, 28, 35, 42, 56, 90]
+response_days = [14, 21, 28, 35, 42, 56, 90]
+increases_dict = pd.DataFrame(columns = ['from', 'to', 'average_percentual_increase'])
+
+for from_k in columns_from:
+    for to_k in response_days:  
+
+        if from_k < to_k:
+            column_name_from = f'recycle_worths_{from_k}day_rate'
+            column_name_to = f'recycle_worths_{to_k}day_rate'
+
+            # 1. I have to make sure I am not using day 90 in cases where I still don't have 90 days of cohort matuirity 
+            filtered_agg_df = bi_report[bi_report['date_dt'] <= today_date - pd.DateOffset(days=to_k)]
+
+            # 2. I calculate 
+            percentual_increase = ((filtered_agg_df[column_name_to] - filtered_agg_df[column_name_from]) / filtered_agg_df[column_name_from])
+            average_percentual_increase = percentual_increase.mean()
+
+            increases_dict = pd.concat([increases_dict, pd.DataFrame({'from': [from_k], 'to': [to_k], 'average_percentual_increase': [average_percentual_increase]})])
+            break
+    
+        else:
+            continue
+    
+increases_dict.reset_index(drop = True, inplace = True)
+
+### I already have the differences dictionary. Then I need to 
+
+relevants = [col for col in bi_report.columns if 'recycle_worths_' in col and col.endswith('day_rate') and int(col.split('_')[2][:-3]) < 120]
+bi_report_pred = bi_report.copy(deep = True)#[['date'] + ['date_dt'] + ['new_device_count'] + relevants]
+
+days_list = [7, 14, 21, 28, 35]
+date = (today_date - bi_report_pred['date_dt'].dt.date)
+bi_report_pred['difference'] = (date / pd.Timedelta(days = 1)).astype(int)
+bi_report_pred['response_availability'] = bi_report_pred['difference'].apply(lambda x: max(day for day in days_list if day <= x))
+bi_report_pred.drop(columns = ['difference'], inplace = True)
+
+
+
+bi_report_pred[f'day7_prediction'] = bi_report_pred[f'recycle_worths_7day_rate']
+
+for i in range(len(increases_dict['from'])):
+    
+    from_day = increases_dict['from'][i]
+    to_day = increases_dict['to'][i]
+    avg_percentual_increase = increases_dict['average_percentual_increase'][i]
+
+    bi_report_pred[f'day{to_day}_prediction'] = np.where(
+        bi_report_pred['response_availability'] <= to_day,
+        bi_report_pred[f'day{from_day}_prediction'] * (1 + avg_percentual_increase),
+        bi_report_pred[f'recycle_worths_{to_day}day_rate']
+    )
+
+###
+
+# Calculate daily average rate from day28 to day90
+daily_avg_rate = (bi_report_pred['day90_prediction'] - bi_report_pred['day28_prediction']) / 62  # 90 - 28 + 1 = 63 days, but we start from day 28
+
+# List of days for which to generate predictions
+additional_days = [14, 28, 35, 42, 56, 63, 70, 77, 84, 91, 98, 100, 105, 112, 119, 120, 126, 133]
+
+# Generate predictions for additional days
+for day in additional_days:
+    if day <= 90:
+        print('过程')
+        # bi_report_pred[f'day{day}_prediction'] = bi_report_pred['day28_prediction'] + daily_avg_rate * (day - 28 + 1)
+    else:
+        bi_report_pred[f'day{day}_prediction'] = bi_report_pred['day90_prediction'] + 0.8 * daily_avg_rate * (day - 90 + 1)
+ 
+
+prediction_column_names = [col for col in bi_report_pred.columns if col.endswith('_prediction')]
+prediction_columns = bi_report_pred.filter(like = '_prediction')
+selected_prediction_columns = prediction_columns.filter(like = '_prediction').filter(regex = r'day(?:{})_prediction'.format('|'.join(map(str, additional_days))))
+
+recycle_worths_ = [f'recycle_worths_{k}day_rate' for k in [7, 14, 21, 28, 35]]
+rule_pred_df_v2 = bi_report_pred[['date'] + ['response_availability'] + ['new_device_count'] + recycle_worths_ + selected_prediction_columns.columns.tolist()]
+
+for k in additional_days:
+    old_col_name = f'day{k}_prediction'
+    new_col_name = f'pred_{k}'
+    
+    if old_col_name in rule_pred_df.columns:
+        rule_pred_df_v2.rename(columns={old_col_name: new_col_name}, inplace=True)
+
+rule_pred_df = rule_pred_df_v2.copy(deep = True)
 
 #region VI.  PAYBACK CALCULATION  ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
