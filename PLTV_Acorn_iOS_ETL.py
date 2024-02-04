@@ -19,7 +19,7 @@ from tqdm import tqdm, tqdm_notebook
 import numpy as np
 import random
 import json
-from datetime import datetime, timedelta
+from datetime import datetime as dt, timedelta
 import re
 from sklearn.model_selection import TimeSeriesSplit
 from sklearn.compose import ColumnTransformer
@@ -123,10 +123,12 @@ bi_report_pred[bi_report_pred.columns[6:]]
 # Calculate daily average rate from day28 to day90
 daily_avg_rate = (bi_report_pred['day90_prediction'] - bi_report_pred['day28_prediction']) / 62  # 90 - 28 + 1 = 63 days, but we start from day 28
 
-additional_days = [14, 28, 35, 42, 56, 63, 70, 77, 84, 91, 98, 100, 105, 112, 119, 120, 126, 133]
+additional_days = [14, 28, 35, 42, 56, 63, 70, 77, 84, 91, 98, 100, 105, 112, 119, 120, 126, 133, 140, 147]
 for day in additional_days:
-    if day <= 90:
+    if day <= 55:
         print('过程')
+    elif day <= 55:
+        bi_report_pred[f'day{day}_prediction'] = bi_report_pred['day28_prediction'] + daily_avg_rate * (90 - day + 1)
     else:
         bi_report_pred[f'day{day}_prediction'] = bi_report_pred['day90_prediction'] + 0.8 * daily_avg_rate * (day - 90 + 1)
         
@@ -180,7 +182,7 @@ def when_long_term(row):
     remaining_spending = (1 - row['pred_126'].values[0])
 
     try:
-        payback = round(133 + (remaining_spending / daily_increase) * 7)
+        payback = round(147 + (remaining_spending / daily_increase) * 7)
     except: 
         payback = np.nan
         print('LT Problem', remaining_spending)
@@ -284,20 +286,24 @@ new_lb.loc[calculation, 'pred_payback_dev'] = (
     round(new_lb['error_d100'] * 1.3 * new_lb['payback']) 
 )
 
-output = new_lb[['date', 'pred_14', 'pred_28', 'pred_56', 'pred_91', 'pred_98', 'pred_100', 'pred_105', 'pred_112',
-       'pred_119', 'pred_126', 'pred_133', 'error_d100', 'payback', 'pred_payback_dev']]
+output = new_lb[['date', 'pred_14', 'pred_28', 'pred_56', 'pred_63', 'pred_70', 'pred_77',
+       'pred_84', 'pred_91', 'pred_98', 'pred_100', 'pred_105', 'pred_112',
+       'pred_119', 'pred_126', 'pred_133', 'pred_140', 'pred_147', 'error_d100', 'payback', 'pred_payback_dev']]
 
-output.columns = ['date', 'pred_14', 'pred_28', 'pred_56', 'pred_91', 'pred_98', 'pred_100', 'pred_105', 'pred_112',
-       'pred_119', 'pred_126', 'pred_133', 'roas_d100_error', 'pred_payback', 'pb_window_error']
+output.columns = ['date', 'pred_14', 'pred_28', 'pred_56', 'pred_63', 'pred_70', 'pred_77',
+       'pred_84', 'pred_91', 'pred_98', 'pred_100', 'pred_105', 'pred_112',
+       'pred_119', 'pred_126', 'pred_133', 'pred_140', 'pred_147', 'roas_d100_error', 'pred_payback', 'pb_window_error']
 
-from datetime import datetime
-today = datetime.now()
+today = dt.now()
 formatted_date = today.strftime("%Y%m%d")
+output.insert(1, 'media_source', 'All')
 output.to_csv('bi_report_' + str(formatted_date) + '.csv', index = False)
-
+print(output)
 #endregion
 
-#region plot 
+plt.figure(figsize=(20, 8))
+from datetime import datetime
+# Plotting the data
 a = bi_report_pred[bi_report_pred['date_dt'] > '2023-12-01'][bi_report_pred['date_dt'] <= '2024-01-25']
 plt.plot(a['date_dt'], a['recycle_worths_35day_rate'], marker='o', label='35-day')
 plt.plot(a['date_dt'], a['recycle_worths_28day_rate'], marker='o', label='28-day', color = 'green')
@@ -328,10 +334,11 @@ plt.axvline(target_date, color='black', linestyle='-', label='35 days before end
 # Add labels and legend
 plt.xlabel('Date')
 plt.ylabel('Recovery Rate')
-plt.title('Recovery on the Nth day (Vertical lines -> insuficient matuirity points)')
+plt.title('Recovery on the Nth (ROAS)')
 plt.legend()
 
 plt.grid(True)
 plt.show()
 
-#endregion
+
+
