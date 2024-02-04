@@ -328,7 +328,7 @@ plt.axvline(target_date, color='black', linestyle='-', label='35 days before end
 # Add labels and legend
 plt.xlabel('Date')
 plt.ylabel('Recovery Rate')
-plt.title('Recovery on the Nth day (Black lines show the point where the closes roas stops having enough maturity)')
+plt.title('Recovery on the Nth day (Vertical lines -> insuficient matuirity points)')
 plt.legend()
 
 plt.grid(True)
